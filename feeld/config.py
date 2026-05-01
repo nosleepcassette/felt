@@ -20,10 +20,15 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 TOKEN_FILE = CONFIG_DIR / "tokens.json"
 
 
-def get_firebase_api_key() -> str | None:
-    """Return Firebase API key if available, None otherwise.
-    Does NOT raise — allows interactive flows to prompt for it."""
-    return os.environ.get("FEELD_FIREBASE_API_KEY", "") or None
+# Feeld's Firebase Web API Key — extracted from the published iOS app.
+# This is NOT a secret. It's embedded in every copy of the Feeld binary
+# and is required for Firebase client SDK calls (sendSignInLinkToEmail, etc.).
+# Source: github.com/niewiemczego/Feeld (community reverse-engineering)
+DEFAULT_FIREBASE_API_KEY = "FEELD_FIREBASE_API_KEY_ALT"
+
+def get_firebase_api_key() -> str:
+    """Return Firebase API key. Uses embedded default unless overridden in .env."""
+    return os.environ.get("FEELD_FIREBASE_API_KEY", "") or DEFAULT_FIREBASE_API_KEY
 
 
 def require_firebase_api_key() -> str:
@@ -59,8 +64,8 @@ def get_graphql_endpoint() -> str:
         data = json.loads(CONFIG_FILE.read_text())
         if data.get("graphql_endpoint"):
             return data["graphql_endpoint"]
-    # Default to most likely endpoint — override if wrong
-    return "https://api.feeld.co/graphql"
+    # Default — confirmed from reverse-engineered iOS app
+    return "https://core.api.fldcore.com/graphql"
 
 
 def get_extra_headers() -> dict:

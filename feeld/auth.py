@@ -81,9 +81,14 @@ def send_magic_link(email: str, api_key: str) -> None:
             "email": email,
             "requestType": "SIGN_IN",
             "continueUrl": "https://feeld.co/__/auth/action",
-            "iOSBundleId": "co.feeld.ios",
+            "iOSBundleId": "com.3nder.threender",
         },
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            "x-client-version": "iOS/FirebaseSDK/10.20.0/FirebaseCore-iOS",
+            "x-ios-bundle-identifier": "com.3nder.threender",
+            "user-agent": "FirebaseAuth.iOS/10.20.0 com.3nder.threender/7.18.0 iPhone/17.5.1 hw/iPhone14_5",
+        },
         timeout=15,
     )
 
@@ -349,44 +354,9 @@ def do_auth_flow():
     else:
         print(f"Email: {email}")
 
-    # --- Step 2: Get Firebase API key ---
+    # --- Step 2: Get Firebase API key (embedded default, no manual config needed) ---
     api_key = get_firebase_api_key()
-    if not api_key:
-        print("")
-        print("No Firebase API key configured. You have two options:")
-        print("")
-        print("  1. If you already have a Feeld magic link email, paste the")
-        print("     full link URL below — we'll extract the API key from it.")
-        print("")
-        print("  2. Enter the API key directly (looks like AIzaSy..., ~39 chars)")
-        print("     This is the 'apiKey' parameter from any Feeld magic link URL.")
-        print("     It's not secret — it's embedded in the published iOS app.")
-        print("")
-        user_input = _prompt("Paste magic link URL or API key")
-
-        if not user_input:
-            raise RuntimeError(
-                "Firebase API key is required.\n"
-                "Get it from any Feeld magic link URL (the apiKey= parameter).\n"
-                "You can trigger a magic link from the Feeld app on your phone,\n"
-                "then check your email and copy the link URL."
-            )
-
-        # Try to extract API key from a URL
-        extracted_key = _extract_api_key_from_url(user_input)
-        if extracted_key:
-            api_key = extracted_key
-            print(f"✓ Extracted API key from URL")
-        elif user_input.startswith("AIzaSy"):
-            api_key = user_input
-        else:
-            raise RuntimeError(
-                f"Could not extract API key from that input.\n"
-                f"Expected a URL containing 'apiKey=' or a key starting with 'AIzaSy'."
-            )
-
-        save_api_key(api_key)
-        print(f"✓ API key saved to .env")
+    print(f"✓ Firebase API key: {api_key[:8]}...{api_key[-4:]}")
 
     # --- Step 3: Send the magic link ---
     print("")

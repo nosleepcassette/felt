@@ -50,7 +50,11 @@ class FeeldClient:
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
-            "Accept": "application/json",
+            "Accept": "*/*",
+            "Accept-Language": "en-GB,en;q=0.9",
+            "X-Device-OS": "ios",
+            "X-App-Version": "7.25.0",
+            "User-Agent": "feeld-mobile",
         }
         headers.update(self.extra_headers)
         return headers
