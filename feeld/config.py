@@ -20,8 +20,15 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 TOKEN_FILE = CONFIG_DIR / "tokens.json"
 
 
-def get_firebase_api_key() -> str:
-    key = os.environ.get("FEELD_FIREBASE_API_KEY", "")
+def get_firebase_api_key() -> str | None:
+    """Return Firebase API key if available, None otherwise.
+    Does NOT raise — allows interactive flows to prompt for it."""
+    return os.environ.get("FEELD_FIREBASE_API_KEY", "") or None
+
+
+def require_firebase_api_key() -> str:
+    """Return Firebase API key or raise. Use when key is required with no fallback."""
+    key = get_firebase_api_key()
     if not key:
         raise RuntimeError(
             "FEELD_FIREBASE_API_KEY not set. Add it to ~/dev/feeld-local/.env\n"
@@ -30,8 +37,14 @@ def get_firebase_api_key() -> str:
     return key
 
 
-def get_email() -> str:
-    email = os.environ.get("FEELD_EMAIL", "")
+def get_email() -> str | None:
+    """Return email if available, None otherwise."""
+    return os.environ.get("FEELD_EMAIL", "") or None
+
+
+def require_email() -> str:
+    """Return email or raise."""
+    email = get_email()
     if not email:
         raise RuntimeError("FEELD_EMAIL not set. Add it to ~/dev/feeld-local/.env")
     return email
@@ -61,9 +74,52 @@ def get_extra_headers() -> dict:
 def save_config(endpoint: str, extra_headers: dict = None):
     """Persist discovered config."""
     CONFIG_DIR.mkdir(exist_ok=True)
-    data = {
-        "graphql_endpoint": endpoint,
-        "extra_headers": extra_headers or {},
-    }
+    data = {}
+    if CONFIG_FILE.exists():
+        data = json.loads(CONFIG_FILE.read_text())
+    data["graphql_endpoint"] = endpoint
+    data["extra_headers"] = extra_headers or {}
     CONFIG_FILE.write_text(json.dumps(data, indent=2))
     print(f"Config saved to {CONFIG_FILE}")
+
+
+def save_api_key(api_key: str):
+    """Persist the Firebase API key to .env (appends if file exists)."""
+    env_path = Path(__file__).parent.parent / ".env"
+    lines = []
+    if env_path.exists():
+        lines = env_path.read_text().splitlines()
+
+    # Update existing or append
+    found = False
+    for i, line in enumerate(lines):
+        if line.startswith("FEELD_FIREBASE_API_KEY="):
+            lines[i] = f"FEELD_FIREBASE_API_KEY={api_key}"
+            found = True
+            break
+    if not found:
+        lines.append(f"FEELD_FIREBASE_API_KEY={api_key}")
+
+    env_path.write_text("\n".join(lines) + "\n")
+    # Also set in current process env so it's available immediately
+    os.environ["FEELD_FIREBASE_API_KEY"] = api_key
+
+
+def save_email(email: str):
+    """Persist email to .env."""
+    env_path = Path(__file__).parent.parent / ".env"
+    lines = []
+    if env_path.exists():
+        lines = env_path.read_text().splitlines()
+
+    found = False
+    for i, line in enumerate(lines):
+        if line.startswith("FEELD_EMAIL="):
+            lines[i] = f"FEELD_EMAIL={email}"
+            found = True
+            break
+    if not found:
+        lines.append(f"FEELD_EMAIL={email}")
+
+    env_path.write_text("\n".join(lines) + "\n")
+    os.environ["FEELD_EMAIL"] = email

@@ -30,10 +30,18 @@ import json
 import os
 import time
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse, unquote
 
 import httpx
 
-from feeld.config import CONFIG_DIR, TOKEN_FILE, get_email, get_firebase_api_key
+from feeld.config import (
+    CONFIG_DIR,
+    TOKEN_FILE,
+    get_email,
+    get_firebase_api_key,
+    save_api_key,
+    save_email,
+)
 
 # Firebase endpoints — these are public/documented, not Feeld-specific
 FIREBASE_SEND_LINK_URL = "https://identitytoolkit.googleapis.com/v1/accounts:sendSignInLinkToEmail"
@@ -67,18 +75,12 @@ def send_magic_link(email: str, api_key: str) -> None:
     or:
       https://feeld.co/__/auth/action?apiKey=...&mode=signIn&oobCode=XXXX...
     """
-    # The continueUrl is where Firebase redirects after the link is clicked.
-    # Feeld's app uses a dynamic link (feeld.page.link) but the actual
-    # Firebase call just needs a valid URL — the link email itself contains
-    # the oobCode regardless of what continueUrl is set to.
     r = httpx.post(
         f"{FIREBASE_SEND_LINK_URL}?key={api_key}",
         json={
             "email": email,
             "requestType": "SIGN_IN",
             "continueUrl": "https://feeld.co/__/auth/action",
-            # Feeld's iOS app identifier — helps Firebase route the link
-            # correctly if the app has multiple dynamic link domains
             "iOSBundleId": "co.feeld.ios",
         },
         headers={"Content-Type": "application/json"},
@@ -97,7 +99,7 @@ def send_magic_link(email: str, api_key: str) -> None:
             "Check FEELD_FIREBASE_API_KEY in .env"
         )
 
-    print(f"Magic link sent to {email}")
+    print(f"✓ Magic link sent to {email}")
     print("Check your inbox (and spam folder). The email should arrive within seconds.")
     print("")
     print("Once you get the email, right-click the login button → Copy Link Address.")
@@ -154,8 +156,8 @@ def exchange_magic_link(oob_code: str, email: str, api_key: str) -> dict:
     }
 
     _save_tokens(tokens)
-    print(f"Auth successful. Token valid until {_format_expiry(tokens['expires_at'])}")
-    print(f"Refresh token stored. You will not need to log in again.")
+    print(f"✓ Auth successful. Token valid until {_format_expiry(tokens['expires_at'])}")
+    print(f"✓ Refresh token stored. You will not need to log in again.")
     return tokens
 
 
@@ -260,8 +262,6 @@ def _extract_oob_code_from_url(url: str) -> str | None:
     - https://feeld.co/__/auth/action?apiKey=...&mode=signIn&oobCode=XXXX
     - https://feeld.page.link/?link=https%3A%2F%2Ffeeld.co%2F__auth%2Faction%3FapiKey%3D...%26oobCode%3DXXXX
     """
-    from urllib.parse import parse_qs, urlparse, unquote
-
     # Try direct URL first
     parsed = urlparse(url)
     params = parse_qs(parsed.query)
@@ -279,22 +279,56 @@ def _extract_oob_code_from_url(url: str) -> str | None:
     return None
 
 
+def _extract_api_key_from_url(url: str) -> str | None:
+    """
+    Extract the Firebase API key from a magic link URL.
+
+    Handles both direct and page.link formats.
+    """
+    parsed = urlparse(url)
+    params = parse_qs(parsed.query)
+    if "apiKey" in params:
+        return params["apiKey"][0]
+
+    if "link" in params:
+        inner_url = unquote(params["link"][0])
+        inner_parsed = urlparse(inner_url)
+        inner_params = parse_qs(inner_parsed.query)
+        if "apiKey" in inner_params:
+            return inner_params["apiKey"][0]
+
+    return None
+
+
+def _prompt(prompt: str, default: str = "") -> str:
+    """Prompt user for input with optional default."""
+    if default:
+        result = input(f"{prompt} [{default}]: ").strip()
+        return result if result else default
+    result = input(f"{prompt}: ").strip()
+    return result
+
+
 def do_auth_flow():
     """
     Full interactive auth flow. Handles the complete cycle:
-    1. Send magic link to email
-    2. Wait for user to open email and paste the link
-    3. Extract oobCode and exchange for tokens
+
+    On first run (no API key or email configured):
+      1. Prompt for email
+      2. Prompt for Firebase API key (or extract from a pasted magic link)
+      3. Send magic link
+      4. Accept pasted magic link URL, extract oobCode
+      5. Exchange for tokens
+
+    On subsequent runs (already configured):
+      1. Check existing tokens
+      2. If valid, report status
+      3. If expired, send new magic link and re-auth
 
     Called by `feeld auth` CLI command.
     """
-    api_key = get_firebase_api_key()
-    email = get_email()
-
-    # Step 1: Check if already authenticated
+    # --- Step 0: Check existing auth ---
     existing_tokens = load_tokens()
-    # (fresh flag handled by CLI before calling this)
-
     if existing_tokens:
         exp = existing_tokens.get("expires_at", 0)
         if time.time() < exp:
@@ -303,14 +337,66 @@ def do_auth_flow():
             print("Use --fresh to re-authenticate.")
             return
 
-    # Step 2: Send the magic link
+    # --- Step 1: Get email ---
+    email = get_email()
+    if not email:
+        print("No email configured. This is the email address for your Feeld account.")
+        email = _prompt("Email")
+        if not email:
+            raise RuntimeError("Email is required.")
+        save_email(email)
+        print(f"✓ Email saved to .env")
+    else:
+        print(f"Email: {email}")
+
+    # --- Step 2: Get Firebase API key ---
+    api_key = get_firebase_api_key()
+    if not api_key:
+        print("")
+        print("No Firebase API key configured. You have two options:")
+        print("")
+        print("  1. If you already have a Feeld magic link email, paste the")
+        print("     full link URL below — we'll extract the API key from it.")
+        print("")
+        print("  2. Enter the API key directly (looks like AIzaSy..., ~39 chars)")
+        print("     This is the 'apiKey' parameter from any Feeld magic link URL.")
+        print("     It's not secret — it's embedded in the published iOS app.")
+        print("")
+        user_input = _prompt("Paste magic link URL or API key")
+
+        if not user_input:
+            raise RuntimeError(
+                "Firebase API key is required.\n"
+                "Get it from any Feeld magic link URL (the apiKey= parameter).\n"
+                "You can trigger a magic link from the Feeld app on your phone,\n"
+                "then check your email and copy the link URL."
+            )
+
+        # Try to extract API key from a URL
+        extracted_key = _extract_api_key_from_url(user_input)
+        if extracted_key:
+            api_key = extracted_key
+            print(f"✓ Extracted API key from URL")
+        elif user_input.startswith("AIzaSy"):
+            api_key = user_input
+        else:
+            raise RuntimeError(
+                f"Could not extract API key from that input.\n"
+                f"Expected a URL containing 'apiKey=' or a key starting with 'AIzaSy'."
+            )
+
+        save_api_key(api_key)
+        print(f"✓ API key saved to .env")
+
+    # --- Step 3: Send the magic link ---
+    print("")
     print(f"Sending magic link to {email}...")
     send_magic_link(email, api_key)
 
-    # Step 3: Get the oobCode from the user
+    # --- Step 4: Get the oobCode from the user ---
     print("")
     print("Paste the full magic link URL (or just the oobCode):")
-    user_input = input("> ").strip()
+    user_input = _prompt("> ")
 
     if not user_input:
         raise RuntimeError("No link provided. Run `feeld auth` to try again.")
@@ -327,8 +413,9 @@ def do_auth_flow():
                 "Paste the full URL from the email, or just the oobCode value."
             )
 
-    # Step 4: Exchange the oobCode for tokens
+    # --- Step 5: Exchange the oobCode for tokens ---
     print("Exchanging magic link for tokens...")
     exchange_magic_link(oob_code, email, api_key)
 
-    print("\nYou're all set. Run `feeld status` to verify, or `feeld introspect` to map the API.")
+    print("")
+    print("You're all set. Run `feeld status` to verify, or `feeld introspect` to map the API.")
