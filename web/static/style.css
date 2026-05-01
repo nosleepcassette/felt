@@ -1,0 +1,290 @@
+/* maps · cassette.help · MIT */
+/* Amber CRT aesthetic — matches cassette.help design language */
+
+:root {
+    --bg: #0d0d0d;
+    --bg2: #141414;
+    --bg3: #1a1a1a;
+    --amber: #ffb000;
+    --amber-dim: #7a5500;
+    --amber-bright: #ffd060;
+    --red: #cc3333;
+    --green: #44cc44;
+    --text: #e0c080;
+    --text-dim: #806040;
+    --border: #333;
+    --card-border: #2a2a2a;
+    --font: 'Courier New', Courier, monospace;
+    --radius: 4px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    min-height: 100vh;
+}
+
+/* -- Header -- */
+header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.logo {
+    font-size: 16px;
+    color: var(--amber-bright);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-right: 12px;
+}
+
+.badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border: 1px solid var(--amber-dim);
+    color: var(--amber-dim);
+    border-radius: var(--radius);
+}
+
+.badge.ok { border-color: var(--green); color: var(--green); }
+.badge.error { border-color: var(--red); color: var(--red); }
+
+.stats-bar {
+    display: flex;
+    gap: 20px;
+    font-size: 12px;
+    color: var(--text-dim);
+}
+
+.stat { display: flex; flex-direction: column; align-items: center; }
+.stat-value { color: var(--amber); font-size: 16px; }
+.stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+
+/* -- Nav -- */
+nav {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+}
+
+.tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 13px;
+    letter-spacing: 1px;
+    padding: 10px 24px;
+    text-transform: lowercase;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.tab:hover { color: var(--text); }
+.tab.active { border-bottom-color: var(--amber); color: var(--amber-bright); }
+
+/* -- Content -- */
+main { padding: 20px; }
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+.loading { color: var(--text-dim); padding: 40px; text-align: center; }
+
+/* -- Card grid -- */
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+}
+
+.card {
+    background: var(--bg2);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    overflow: hidden;
+    transition: border-color 0.15s, transform 0.1s;
+}
+
+.card:hover {
+    border-color: var(--amber-dim);
+    transform: translateY(-2px);
+}
+
+.card-photo {
+    aspect-ratio: 3/4;
+    background: var(--bg3);
+    overflow: hidden;
+    position: relative;
+}
+
+.card-photo img {
+    height: 100%;
+    object-fit: cover;
+    width: 100%;
+}
+
+.card-photo .no-photo {
+    align-items: center;
+    color: var(--text-dim);
+    display: flex;
+    font-size: 40px;
+    height: 100%;
+    justify-content: center;
+}
+
+.card-info {
+    padding: 10px 12px;
+}
+
+.card-name {
+    color: var(--amber-bright);
+    font-size: 14px;
+    font-weight: bold;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.card-meta {
+    color: var(--text-dim);
+    font-size: 11px;
+    margin-top: 4px;
+}
+
+.card-time {
+    color: var(--text-dim);
+    font-size: 10px;
+    margin-top: 6px;
+    text-align: right;
+}
+
+/* -- Modal -- */
+.modal { position: fixed; inset: 0; z-index: 1000; }
+.modal.hidden { display: none; }
+
+.modal-backdrop {
+    background: rgba(0,0,0,0.85);
+    position: absolute;
+    inset: 0;
+}
+
+.modal-content {
+    background: var(--bg2);
+    border: 1px solid var(--amber-dim);
+    border-radius: var(--radius);
+    left: 50%;
+    max-height: 90vh;
+    max-width: 480px;
+    overflow-y: auto;
+    padding: 24px;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 24px;
+    position: absolute;
+    right: 12px;
+    top: 8px;
+}
+
+.modal-close:hover { color: var(--amber); }
+
+.modal-photos {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+}
+
+.modal-photos img {
+    border-radius: var(--radius);
+    height: 200px;
+    object-fit: cover;
+    width: 150px;
+    flex-shrink: 0;
+}
+
+.modal-name {
+    color: var(--amber-bright);
+    font-size: 20px;
+    margin-bottom: 4px;
+}
+
+.modal-meta { color: var(--text-dim); font-size: 12px; margin-bottom: 12px; }
+
+.modal-section { margin-bottom: 12px; }
+.modal-section-label {
+    color: var(--amber-dim);
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.modal-bio { color: var(--text); font-size: 13px; line-height: 1.6; }
+
+.modal-desires {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.desire-tag {
+    background: var(--bg3);
+    border: 1px solid var(--amber-dim);
+    border-radius: 2px;
+    color: var(--text-dim);
+    font-size: 11px;
+    padding: 2px 8px;
+}
+
+/* -- Notices -- */
+.notice {
+    color: var(--text-dim);
+    font-size: 12px;
+    margin-top: 20px;
+    padding: 16px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    text-align: center;
+}
+
+.error-banner {
+    background: #2a0000;
+    border: 1px solid var(--red);
+    border-radius: var(--radius);
+    color: #ff6666;
+    font-size: 12px;
+    margin: 0 20px 0;
+    padding: 10px 16px;
+}
+
+.error-banner.hidden { display: none; }
+
+/* -- Scrollbar -- */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--amber-dim); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--amber); }
