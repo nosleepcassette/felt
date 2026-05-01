@@ -13,11 +13,12 @@ from feeld.queries import (
     fetch_likes_received,
     fetch_matches,
     fetch_me,
-    fetch_passes_received,
-    fetch_profile_stats,
+    fetch_discovery,
+    fetch_pings_received,
 )
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
+
 _client: FeeldClient | None = None
 
 
@@ -39,24 +40,25 @@ def _error(message: str, status: int = 500):
 @app.route("/api/me")
 def api_me():
     try:
-        profile = fetch_me(get_client())
+        account = fetch_me(get_client())
+        # Account has profiles array — grab the first one
+        profiles = account.get("profiles", [])
+        profile = profiles[0] if profiles else {}
         return jsonify({
-            "id": profile.id,
-            "displayName": profile.display_name,
-            "age": profile.age,
-            "primaryPhotoUrl": profile.primary_photo_url,
+            "id": profile.get("id", ""),
+            "displayName": profile.get("imaginaryName", ""),
+            "age": profile.get("age", ""),
+            "gender": profile.get("gender", ""),
+            "bio": profile.get("bio", ""),
+            "isMajestic": profile.get("isMajestic", False),
+            "isVerified": profile.get("isVerified", False),
+            "primaryPhotoUrl": (
+                profile.get("photos", [{}])[0].get("pictureUrl", "")
+                if profile.get("photos") else ""
+            ),
         })
     except FeeldAuthError as e:
         return _error(str(e), 401)
-    except Exception as e:
-        return _error(str(e))
-
-
-@app.route("/api/stats")
-def api_stats():
-    try:
-        stats = fetch_profile_stats(get_client())
-        return jsonify(stats)
     except Exception as e:
         return _error(str(e))
 
@@ -65,20 +67,20 @@ def api_stats():
 def api_likes():
     limit = min(int(request.args.get("limit", 50)), 200)
     try:
-        events = fetch_likes_received(get_client(), limit=limit)
-        return jsonify([_swipe_to_dict(e) for e in events])
+        nodes = fetch_likes_received(get_client())
+        return jsonify([_profile_to_dict(n) for n in nodes[:limit]])
     except FeeldAuthError as e:
         return _error(str(e), 401)
     except Exception as e:
         return _error(str(e))
 
 
-@app.route("/api/passes")
-def api_passes():
+@app.route("/api/pings")
+def api_pings():
     limit = min(int(request.args.get("limit", 50)), 200)
     try:
-        events = fetch_passes_received(get_client(), limit=limit)
-        return jsonify([_swipe_to_dict(e) for e in events])
+        nodes = fetch_pings_received(get_client(), limit=limit)
+        return jsonify([_profile_to_dict(n) for n in nodes])
     except FeeldAuthError as e:
         return _error(str(e), 401)
     except Exception as e:
@@ -89,8 +91,19 @@ def api_passes():
 def api_matches():
     limit = min(int(request.args.get("limit", 50)), 200)
     try:
-        matches = fetch_matches(get_client(), limit=limit)
-        return jsonify([_match_to_dict(m) for m in matches])
+        nodes = fetch_matches(get_client(), limit=limit)
+        return jsonify([_match_to_dict(n) for n in nodes])
+    except FeeldAuthError as e:
+        return _error(str(e), 401)
+    except Exception as e:
+        return _error(str(e))
+
+
+@app.route("/api/discovery")
+def api_discovery():
+    try:
+        nodes = fetch_discovery(get_client())
+        return jsonify([_profile_to_dict(n) for n in nodes])
     except FeeldAuthError as e:
         return _error(str(e), 401)
     except Exception as e:
@@ -101,38 +114,50 @@ def api_matches():
 # Serialization helpers
 # ---------------------------------------------------------------------------
 
-def _swipe_to_dict(event) -> dict:
-    p = event.profile
+def _profile_to_dict(p: dict) -> dict:
+    """Convert a raw Feeld profile dict to frontend-friendly JSON."""
+    interaction = p.get("interactionStatus", {})
+    distance = p.get("distance", {})
     return {
-        "id": event.id,
-        "action": event.action,
-        "timeAgo": event.time_ago,
-        "profile": {
-            "id": p.id,
-            "displayName": p.display_name,
-            "age": p.age,
-            "gender": p.gender,
-            "bio": p.bio,
-            "desires": p.desires,
-            "primaryPhotoUrl": p.primary_photo_url,
-            "photos": [{"url": ph.url} for ph in p.photos],
+        "id": p.get("id", ""),
+        "displayName": p.get("imaginaryName", ""),
+        "age": p.get("age", ""),
+        "gender": p.get("gender", ""),
+        "sexuality": p.get("sexuality", ""),
+        "bio": p.get("bio", ""),
+        "desires": p.get("desires", []),
+        "interests": p.get("interests", []),
+        "isMajestic": p.get("isMajestic", False),
+        "isVerified": p.get("isVerified", False),
+        "isUplift": p.get("isUplift", False),
+        "lastSeen": p.get("lastSeen", ""),
+        "distanceKm": distance.get("km"),
+        "interactionStatus": {
+            "mine": interaction.get("mine", ""),
+            "theirs": interaction.get("theirs", ""),
+            "message": interaction.get("message", ""),
         },
+        "primaryPhotoUrl": (
+            p.get("photos", [{}])[0].get("pictureUrl", "")
+            if p.get("photos") else ""
+        ),
+        "photos": [
+            {"url": ph.get("pictureUrl", ""), "id": ph.get("id", "")}
+            for ph in (p.get("photos") or [])
+        ],
     }
 
 
-def _match_to_dict(match) -> dict:
-    p = match.profile
+def _match_to_dict(m: dict) -> dict:
+    """Convert a raw chat summary dict to frontend-friendly JSON."""
     return {
-        "id": match.id,
-        "matchedAt": match.matched_at.isoformat() if match.matched_at else None,
-        "unreadCount": match.unread_count,
-        "lastMessage": match.last_message,
-        "profile": {
-            "id": p.id,
-            "displayName": p.display_name,
-            "age": p.age,
-            "primaryPhotoUrl": p.primary_photo_url,
-        },
+        "id": m.get("id", ""),
+        "name": m.get("name", ""),
+        "type": m.get("type", ""),
+        "status": m.get("status", ""),
+        "latestMessage": m.get("latestMessage", ""),
+        "streamChannelId": m.get("streamChannelId", ""),
+        "targetProfileId": m.get("targetProfileId", ""),
     }
 
 
