@@ -20,13 +20,17 @@ import sys
 
 
 def cmd_auth(args):
-    from feeld.auth import do_auth_flow, load_tokens
+    from feeld.auth import do_auth_flow, do_link_auth, load_tokens
     if args.fresh:
         from feeld.config import TOKEN_FILE
         if TOKEN_FILE.exists():
             TOKEN_FILE.unlink()
-            print("Cleared existing tokens.")
-    do_auth_flow()
+        print("Cleared existing tokens.")
+    if args.link:
+        # Direct magic link exchange — skip the send step
+        do_link_auth(args.link)
+    else:
+        do_auth_flow()
 
 
 def cmd_status(args):
@@ -103,8 +107,9 @@ def main():
     sub = parser.add_subparsers(dest="command")
 
     # auth
-    p_auth = sub.add_parser("auth", help="Authenticate via Firebase magic link (sent to your email)")
+    p_auth = sub.add_parser("auth", help="Authenticate via Firebase magic link")
     p_auth.add_argument("--fresh", action="store_true", help="Clear existing tokens and re-auth")
+    p_auth.add_argument("link", nargs="?", default=None, help="Magic link URL (from email) — skips the send step")
 
     # status
     sub.add_parser("status", help="Show auth status")

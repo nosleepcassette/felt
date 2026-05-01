@@ -299,7 +299,7 @@ def _extract_api_key_from_url(url: str) -> str | None:
     """
     Extract the Firebase API key from a magic link URL.
 
-    Handles both direct and page.link formats.
+    Handles both direct and page.link/onelink.me formats.
     """
     parsed = urlparse(url)
     params = parse_qs(parsed.query)
@@ -312,6 +312,39 @@ def _extract_api_key_from_url(url: str) -> str | None:
         inner_params = parse_qs(inner_parsed.query)
         if "apiKey" in inner_params:
             return inner_params["apiKey"][0]
+
+    return None
+
+
+def _extract_email_from_url(url: str) -> str | None:
+    """
+    Extract email from a magic link URL.
+    Feeld embeds the email in the continueUrl parameter.
+    """
+    parsed = urlparse(url)
+    params = parse_qs(parsed.query)
+
+    # Check outer params first
+    if "email" in params:
+        return unquote(params["email"][0])
+
+    # Drill into the 'link' parameter (onelink.me / page.link format)
+    if "link" in params:
+        inner_url = unquote(params["link"][0])
+        inner_parsed = urlparse(inner_url)
+        inner_params = parse_qs(inner_parsed.query)
+
+        # Email might be in the continueUrl within the inner URL
+        if "continueUrl" in inner_params:
+            cont_url = unquote(inner_params["continueUrl"][0])
+            cont_parsed = urlparse(cont_url)
+            cont_params = parse_qs(cont_parsed.query)
+            if "email" in cont_params:
+                return unquote(cont_params["email"][0])
+
+        # Or directly in the inner URL params
+        if "email" in inner_params:
+            return unquote(inner_params["email"][0])
 
     return None
 
@@ -400,3 +433,57 @@ def do_auth_flow():
 
     print("")
     print("You're all set. Run `feeld status` to verify, or `feeld introspect` to map the API.")
+
+
+def do_link_auth(link_url: str):
+    """
+    Direct magic link auth — skip the send step.
+    Use when you already have a magic link URL (e.g. from the Feeld app's login email).
+
+    Usage: feeld auth "https://feeld.onelink.me/TRZt/...?link=...%3FapiKey%3D...%26oobCode%3D..."
+
+    Extracts apiKey, oobCode, and email from the URL and exchanges them for tokens.
+    Also works with the inner firebaseapp.com URL directly.
+    """
+    print("Extracting credentials from magic link...")
+
+    # Extract oobCode
+    oob_code = _extract_oob_code_from_url(link_url)
+    if not oob_code:
+        raise RuntimeError(
+            "Could not extract oobCode from that URL.\n"
+            "Expected a URL containing 'oobCode=' parameter.\n"
+            "Paste the full link from the Feeld login email."
+        )
+    print(f"✓ oobCode: {oob_code[:12]}...{oob_code[-4:]}")
+
+    # Extract API key
+    api_key = _extract_api_key_from_url(link_url)
+    if api_key:
+        print(f"✓ API key: {api_key[:8]}...{api_key[-4:]}")
+        # Save it as the default going forward
+        save_api_key(api_key)
+    else:
+        api_key = get_firebase_api_key()
+        print(f"✓ Using embedded API key: {api_key[:8]}...{api_key[-4:]}")
+
+    # Try to extract email from URL (it's in the continueUrl parameter)
+    email = _extract_email_from_url(link_url)
+    if not email:
+        # Fall back to stored email
+        email = get_email()
+    if not email:
+        # Last resort: prompt
+        email = _prompt("Email")
+        if not email:
+            raise RuntimeError("Email is required.")
+    print(f"✓ Email: {email}")
+    save_email(email)
+
+    # Exchange the oobCode for tokens
+    print("")
+    print("Exchanging magic link for tokens...")
+    exchange_magic_link(oob_code, email, api_key)
+
+    print("")
+    print("You're all set. Run `feeld status` to verify, or `feeld likes` to see who's into you.")
