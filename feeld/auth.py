@@ -93,10 +93,15 @@ def send_magic_link(email: str, api_key: str) -> None:
     )
 
     if r.status_code != 200:
-        body = r.json()
-        error = body.get("error", {}).get("message", "Unknown Firebase error")
+        # Firebase sometimes returns non-JSON on errors (HTML, empty body, etc.)
+        try:
+            body = r.json()
+            error = body.get("error", {}).get("message", "Unknown Firebase error")
+        except Exception:
+            error = f"HTTP {r.status_code}: {r.text[:200] or '(empty body)'}"
         raise RuntimeError(
             f"Failed to send magic link: {error}\n"
+            f"Full response: {r.status_code} {r.reason_phrase}\n"
             "Common causes:\n"
             " - Email not associated with a Feeld account\n"
             " - Invalid Firebase API key\n"
@@ -137,8 +142,11 @@ def exchange_magic_link(oob_code: str, email: str, api_key: str) -> dict:
     )
 
     if r.status_code != 200:
-        body = r.json()
-        error = body.get("error", {}).get("message", "Unknown Firebase error")
+        try:
+            body = r.json()
+            error = body.get("error", {}).get("message", "Unknown Firebase error")
+        except Exception:
+            error = f"HTTP {r.status_code}: {r.text[:200] or '(empty body)'}"
         raise RuntimeError(
             f"Firebase auth failed: {error}\n"
             "Common causes:\n"
@@ -190,8 +198,11 @@ def refresh_id_token(tokens: dict) -> dict:
     )
 
     if r.status_code != 200:
-        body = r.json()
-        error = body.get("error", {}).get("error_description", "Unknown error")
+        try:
+            body = r.json()
+            error = body.get("error", {}).get("error_description", "Unknown error")
+        except Exception:
+            error = f"HTTP {r.status_code}: {r.text[:200] or '(empty body)'}"
         raise RuntimeError(
             f"Token refresh failed: {error}\n"
             "Your refresh token may be revoked (e.g., password change or account action).\n"
