@@ -1,64 +1,63 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>feeld-local</title>
-    <link rel="stylesheet" href="/static/style.css">
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>felt</title>
+ <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <div id="app">
+ <div id="app">
 
-        <header>
-            <div class="header-left">
-                <span class="logo">feeld-local</span>
-                <span class="badge" id="auth-status">checking auth...</span>
-            </div>
-            <div class="stats-bar" id="stats-bar">
-                <!-- Filled by JS: total likes / passes / matches -->
-            </div>
-        </header>
+ <header>
+ <div class="header-left">
+ <span class="logo">felt</span>
+ <span class="badge" id="auth-status">checking auth...</span>
+ </div>
+ </header>
 
-        <nav>
-            <button class="tab active" data-tab="likes">liked you</button>
-            <button class="tab" data-tab="passes">passed on you</button>
-            <button class="tab" data-tab="matches">matches</button>
-        </nav>
+ <nav>
+ <button class="tab active" data-tab="likes">liked you</button>
+ <button class="tab" data-tab="pings">pinged you</button>
+ <button class="tab" data-tab="matches">matches</button>
+ <button class="tab" data-tab="discovery">discovery</button>
+ </nav>
 
-        <div id="error-banner" class="error-banner hidden"></div>
+ <div id="error-banner" class="error-banner hidden"></div>
 
-        <main>
-            <div id="tab-likes" class="tab-content active">
-                <div class="loading">loading...</div>
-                <div class="card-grid" id="likes-grid"></div>
-            </div>
+ <main>
+ <div id="tab-likes" class="tab-content active">
+ <div class="loading">loading...</div>
+ <div class="card-grid" id="likes-grid"></div>
+ </div>
 
-            <div id="tab-passes" class="tab-content">
-                <div class="loading">loading...</div>
-                <div class="card-grid" id="passes-grid"></div>
-                <div id="passes-unavailable" class="notice hidden">
-                    The passes endpoint may not be available on Feeld's API.
-                    Check the server console for details.
-                </div>
-            </div>
+ <div id="tab-pings" class="tab-content">
+ <div class="loading">loading...</div>
+ <div class="card-grid" id="pings-grid"></div>
+ </div>
 
-            <div id="tab-matches" class="tab-content">
-                <div class="loading">loading...</div>
-                <div class="card-grid" id="matches-grid"></div>
-            </div>
-        </main>
+ <div id="tab-matches" class="tab-content">
+ <div class="loading">loading...</div>
+ <div class="card-grid" id="matches-grid"></div>
+ </div>
 
-        <!-- Profile detail modal -->
-        <div id="modal" class="modal hidden">
-            <div class="modal-backdrop" id="modal-backdrop"></div>
-            <div class="modal-content">
-                <button class="modal-close" id="modal-close">×</button>
-                <div id="modal-body"></div>
-            </div>
-        </div>
+ <div id="tab-discovery" class="tab-content">
+ <div class="loading">loading...</div>
+ <div class="card-grid" id="discovery-grid"></div>
+ </div>
+ </main>
 
-    </div>
+ <!-- Profile detail modal -->
+ <div id="modal" class="modal hidden">
+ <div class="modal-backdrop" id="modal-backdrop"></div>
+ <div class="modal-content">
+ <button class="modal-close" id="modal-close">×</button>
+ <div id="modal-body"></div>
+ </div>
+ </div>
 
-    <script src="/static/app.js"></script>
+ </div>
+
+ <script src="/static/app.js"></script>
 </body>
 </html>

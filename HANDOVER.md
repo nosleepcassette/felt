@@ -88,21 +88,30 @@ There's a reverse-engineered Feeld API wrapper at `~/bin/feeld/` (source: github
 
 ## Known Issues / Next Steps
 
-1. **End-to-end live test** — Auth works, but we haven't confirmed that `feeld likes` or `feeld matches` actually returns data. The queries are from the reference repo and should work, but need to verify against the live API after auth.
+1. **GraphQL 400 Bad Request on live calls** — After authenticating, API calls to `core.api.fldcore.com/graphql` return 400. Observed from `feeld web` when hitting `/api/likes`, `/api/me`, `/api/matches`. The queries are from the reference repo and *should* be correct, but something in the request format is wrong. Likely causes:
+   - Missing or wrong `x-profile-id` header (Feeld requires this on most queries — need to fetch it from the AuthProviderQuery first and set it on the client)
+   - The AuthProviderQuery itself might need a profile ID header, creating a chicken-and-egg problem (check how the reference repo handles initial profile fetch)
+   - Query format differences (the reference repo sends `operationName` as a top-level key, which our client does — verify)
+   - Token format issue (Bearer prefix, expired token, etc.)
+   - **This is the blocking issue. Everything else is cosmetic.**
 
 2. **sendSignInLinkToEmail 404** — The interactive "send me a magic link" flow doesn't work. Returns 404 from googleapis on this machine. Low priority since direct link auth works.
 
-3. **Web app is stubby** — The HTML/CSS/JS frontend exists but was built for the old placeholder data model. It needs updating to match the real API response format (imaginaryName instead of displayName, pictureUrl instead of url, etc.).
+3. **Web frontend just updated** — HTML/JS now use the real field names (displayName from the API dict, not event.profile.displayName). Tabs are likes/pings/matches/discovery. Removed /api/stats and /api/passes calls. But can't verify rendering until the 400 is fixed.
 
 4. **Models are raw dicts** — The old models.py had dataclasses (Profile, SwipeEvent, Match) but the real API returns nested dicts with different field names. Currently everything just passes dicts through. Could rebuild proper models if wanted.
 
 5. **No chat** — We can list chat summaries (matches) but can't read or send messages. The reference repo has this if needed.
 
-6. **CLI data commands** — `feeld likes`, `feeld matches` etc. still try to use the old dataclass-based serialization. Need to update cli.py's `cmd_json_output` to work with raw dicts.
+6. **CLI data commands** — `feeld likes`, `feeld matches` etc. still try to use the old dataclass-based serialization (`cmd_json_output` in cli.py). Need to update to work with raw dicts.
 
 7. **Project rename** — The directory is still `feeld-local`, the CLI is still `feeld`, but the project/repo name is now **felt**. The GitHub remote is set to `nosleepcassette/felt`. A future step could rename the directory to `felt` and the package to `felt`, keeping `feeld` as just the CLI command name.
 
 8. **`.env` has stale oobCode line** — Harmless but messy. Clean up if you want.
+
+9. **Web app 500 errors** — The `/api/me` and `/api/likes` routes return 500 because the underlying GraphQL call fails with 400. Once the GraphQL request format is fixed (issue #1), these should work.
+
+10. **The reference repo's HTTPManager needs study for the x-profile-id flow** — The `niewiemczego/Feeld` code at `~/bin/feeld/feeld/networking/http_manager.py` has a `_set_profile_data()` method that sets the profile ID from the auth response. Our client doesn't do this yet. Feeld's API likely requires `x-profile-id` in the headers for most queries. The flow is: (1) call AuthProviderQuery with just the Bearer token, (2) extract profile ID from response, (3) set it as `x-profile-id` header on all subsequent requests. **This is almost certainly the cause of the 400s.**
 
 ---
 
