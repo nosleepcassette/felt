@@ -20,13 +20,10 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 TOKEN_FILE = CONFIG_DIR / "tokens.json"
 
 
-# Feeld's Firebase Web API Key — extracted from magic link URLs.
-# This is NOT a secret. It's embedded in every Feeld magic link email.
-# Project: f2-prod-53475 (confirmed from real magic links, April 2026)
-# NOTE: The key from the niewiemczego/Feeld reference repo
-# (FEELD_FIREBASE_API_KEY_ALT) is for a DIFFERENT
-# Firebase project and does NOT work with Feeld's current auth.
-DEFAULT_FIREBASE_API_KEY = "FEELD_FIREBASE_API_KEY"
+# Feeld's Firebase Web API Key — public app config, embedded in every magic link email.
+# Not a personal secret, removed from source to avoid scanner warnings.
+# Project: f2-prod-53475. Set FEELD_FIREBASE_API_KEY in .env or run `feeld configure`.
+DEFAULT_FIREBASE_API_KEY = ""
 
 def get_firebase_api_key() -> str:
     """Return Firebase API key. Uses embedded default unless overridden in .env."""
